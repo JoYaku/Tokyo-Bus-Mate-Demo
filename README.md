@@ -7,6 +7,8 @@
 
 ![5画面](preview.png)
 
+**ブラウザで動く Demo：** https://joyaku.github.io/Tokyo-Bus-Mate-Demo/
+
 ## Demo でできること
 
 1. **目的地を選ぶ** — 上野動物園 / 東京スカイツリー / 浅草寺
