@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokyo Bus Mate — Demo（都営バス 上23 / 浅草周辺）</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2311161a'/%3E%3Crect x='7' y='9' width='18' height='13' rx='2' fill='%23fff'/%3E%3Crect x='7' y='15' width='18' height='4' fill='%2300793d'/%3E%3Ccircle cx='11' cy='24' r='2' fill='%23333'/%3E%3Ccircle cx='21' cy='24' r='2' fill='%23333'/%3E%3C/svg%3E">
+<style>
+:root{
+  --ink:#11161a;
+  --ink2:#5b635f;
+  --paper:#eff1ec;
+  --board:#ffffff;
+  --line:#d7dbd5;
+  --green:#00793d;
+  --green-d:#005c2f;
+  --amber:#ffb43a;
+  --red:#cf2a2a;
+  --din:"Bahnschrift","DIN Alternate","Segoe UI",system-ui,sans-serif;
+  --jp:"Yu Gothic UI","Yu Gothic","Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",Meiryo,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--jp);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.stage{position:relative;min-height:100vh;min-height:100dvh;display:grid;grid-template-columns:1fr;place-items:center;padding:0}
+.stage::before{content:"";position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(to right,rgba(17,22,26,.05) 1px,transparent 1px),linear-gradient(to bottom,rgba(17,22,26,.05) 1px,transparent 1px);background-size:32px 32px;mask-image:radial-gradient(120% 90% at 50% 45%,#000 30%,transparent 100%);-webkit-mask-image:radial-gradient(120% 90% at 50% 45%,#000 30%,transparent 100%)}
+
+/* ---- 左パネル（デスクトップ） ---- */
+.brief{display:none}
+@media (min-width:980px){
+  .stage{grid-template-columns:340px 392px;gap:72px;align-items:center;justify-content:center;padding:44px}
+  .brief{display:block;align-self:center}
+}
+.brandmark{display:flex;align-items:center;gap:9px;margin-bottom:24px}
+.brandmark svg{flex:0 0 auto}
+.brandmark span{font-family:var(--din);font-size:13px;font-weight:700;letter-spacing:.08em}
+.brief h2{font-size:29px;line-height:1.34;margin:0 0 10px;font-weight:700;letter-spacing:-.01em}
+.brief .jp{font-size:13px;color:var(--ink2);line-height:1.75;margin:0 0 22px}
+.flow{list-style:none;margin:0 0 22px;padding:0;border-top:1px solid var(--line)}
+.flow li{display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--line)}
+.flow .n{font-family:var(--din);font-size:12px;color:var(--ink2);letter-spacing:.06em}
+.flow .t{font-size:13px;font-weight:700}
+.flow .t em{display:block;font-style:normal;font-size:11px;font-weight:400;color:var(--ink2);margin-top:2px}
+.meta{font-family:var(--din);font-size:11px;line-height:1.9;color:var(--ink2);letter-spacing:.04em}
+.meta strong{color:var(--ink);font-weight:700}
+
+/* ---- 端末フレーム ---- */
+.device{position:relative;width:392px;height:min(844px,94vh);height:min(844px,94dvh);padding:10px;background:#11161a;border-radius:52px;box-shadow:0 44px 80px -34px rgba(17,22,26,.5),0 0 0 1px rgba(17,22,26,.12)}
+.app{position:relative;display:flex;flex-direction:column;height:100%;background:var(--board);border-radius:42px;overflow:hidden}
+@media (max-width:979px){
+  .stage{display:block}
+  .device{width:100%;height:100vh;height:100dvh;padding:0;background:var(--board);border-radius:0;box-shadow:none}
+  .app{border-radius:0}
+  .homebar{display:none}
+}
+
+/* ---- 共通 ------- */
+.appbar{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px 8px}
+.plate{display:flex;align-items:baseline;gap:8px}
+.plate b{background:var(--ink);color:#fff;font-family:var(--din);font-size:14px;font-weight:700;letter-spacing:.04em;padding:4px 8px;border-radius:3px}
+.plate span{font-family:var(--din);font-size:11px;color:var(--ink2);letter-spacing:.06em}
+.steps{display:flex;gap:5px}
+.steps i{display:block;width:20px;height:4px;border-radius:2px;background:var(--line);transition:background .2s}
+.steps i.on{background:var(--ink)}
+.steps i.past{background:var(--green)}
+
+#screen{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;padding:0 18px 22px;-webkit-overflow-scrolling:touch}
+#screen::-webkit-scrollbar{width:0}
+
+.eyebrow{font-size:11px;letter-spacing:.08em;color:var(--ink2);margin:6px 0 0}
+h1.brand{font-family:var(--din);font-size:44px;line-height:.98;letter-spacing:-.015em;margin:12px 0 0;font-weight:700}
+.tag{font-size:14px;font-weight:700;line-height:1.6;margin:14px 0 0}
+.lead{font-size:13px;line-height:1.7;color:var(--ink2);margin:9px 0 0}
+.stepnum{font-family:var(--din);font-size:12px;font-weight:700;color:var(--green);letter-spacing:.08em}
+.scr-title{font-size:26px;font-weight:700;line-height:1.24;margin:4px 0 0;letter-spacing:-.01em}
+.scr-sub{font-size:12px;color:var(--ink2);letter-spacing:.04em;margin:6px 0 0}
+
+.btn{display:block;width:100%;min-height:56px;border:0;border-radius:5px;background:var(--green);color:#fff;font-family:var(--jp);font-size:16px;font-weight:700;line-height:1.2;padding:14px 16px;cursor:pointer;transition:background .18s,transform .12s}
+.btn:hover{background:var(--green-d)}
+.btn:active{transform:scale(.985)}
+.btn small{display:block;font-size:11px;font-weight:400;opacity:.9;margin-top:4px}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);margin-top:10px}
+.btn.ghost:hover{background:#f6f7f3;border-color:#c2c8c1}
+.btn:focus-visible,.dest:focus-visible,.stop:focus-visible,.pin,button:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+
+.foot-note{font-size:11px;line-height:1.7;color:var(--ink2);margin:16px 0 0}
+
+/* ---- ホーム ---- */
+.home{display:flex;flex-direction:column;justify-content:space-between;min-height:100%}
+.guide{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.guide .g{min-width:0}
+.guide .g-n{font-family:var(--din);font-size:11px;font-weight:700;color:var(--green);letter-spacing:.04em}
+.guide .g svg{display:block;margin:6px 0 6px;color:var(--ink)}
+.guide .g b{display:block;font-size:11px;font-weight:700;line-height:1.4}
+.guide .g span{display:block;font-size:10px;color:var(--ink2);margin-top:2px;line-height:1.4}
+.page{display:flex;flex-direction:column;min-height:100%}
+.push{margin-top:auto}
+.places{padding-top:10px}
+.places-h{font-size:11px;letter-spacing:.04em;color:var(--ink2);margin:0 0 8px}
+.places-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.place img{display:block;width:100%;aspect-ratio:1/1;object-fit:cover;border:1px solid var(--line);border-radius:4px;background:#e6e8e3}
+.place span{display:block;font-size:10px;font-weight:700;margin-top:5px;line-height:1.4}
+.home-foot{padding-top:10px}
+
+/* ---- 目的地（行リスト） ---- */
+.dest-list{margin-top:12px;border-top:1px solid var(--line)}
+.dest{display:flex;align-items:center;gap:14px;width:100%;min-height:176px;padding:16px 0;background:transparent;border:0;border-bottom:1px solid var(--line);text-align:left;cursor:pointer;transition:background .15s}
+.dest:hover{background:#f7f8f4}
+.dest img{flex:0 0 auto;width:150px;height:112px;object-fit:cover;border:1px solid var(--line);border-radius:4px;background:#e6e8e3}
+.dest-body{flex:1 1 auto;min-width:0}
+.dest-jp{font-size:22px;font-weight:700;line-height:1.25}
+.dest-jp.long{font-size:19px}
+.dest-en{font-size:11px;color:var(--ink2);margin-top:2px}
+.dest-dir{font-size:11px;color:var(--green-d);margin-top:5px;letter-spacing:.02em}
+.dest .go{flex:0 0 auto;color:var(--ink2)}
+
+/* ---- 検索 ---- */
+.search{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:5px;padding:0 12px;margin-top:14px;background:#fff}
+.search:focus-within{border-color:var(--green);box-shadow:0 0 0 3px rgba(0,121,61,.12)}
+.search svg{flex:0 0 auto;color:var(--ink2)}
+.search input{flex:1 1 auto;min-width:0;border:0;outline:0;background:transparent;font-family:var(--jp);font-size:16px;color:var(--ink);padding:13px 0}
+.search input::placeholder{color:#9aa19c;font-size:13px}
+
+/* ---- バス停リスト ---- */
+.stop-list{margin-top:12px;border-top:1px solid var(--line)}
+.stop{display:flex;align-items:center;gap:13px;width:100%;min-height:68px;padding:8px 2px;background:transparent;border:0;border-bottom:1px solid var(--line);text-align:left;cursor:pointer;transition:background .15s}
+.stop:hover{background:#f7f8f4}
+.stop svg{flex:0 0 auto;color:var(--ink2)}
+.stop-txt{min-width:0}
+.stop-jp{display:block;font-size:21px;font-weight:600;line-height:1.25;letter-spacing:-.01em}
+.stop-jp.long{font-size:18px}
+.stop-ro{display:block;font-family:var(--din);font-size:12px;color:var(--ink2);margin-top:4px}
+.stop .go{margin-left:auto;flex:0 0 auto;color:var(--ink2)}
+.empty{display:block;padding:22px 2px;font-size:13px;line-height:1.7;color:var(--ink2);border-bottom:1px solid var(--line)}
+
+.note-card{margin-top:16px;border:1px dashed #c3cac2;border-radius:5px;background:#fbfcf8;padding:12px 13px}
+.note-card b{display:block;font-size:12px;font-weight:700;margin-bottom:3px}
+.note-card span{display:block;font-size:11px;line-height:1.7;color:var(--ink2)}
+.tip{display:flex;gap:12px;align-items:flex-start;margin-top:12px;padding:13px;background:#f1f5f0;border-radius:5px}
+.tip svg{flex:0 0 auto;color:var(--green-d)}
+.tip b{display:block;font-size:12px;font-weight:700;margin-bottom:3px}
+.tip span{display:block;font-size:11px;line-height:1.7;color:var(--ink2)}
+
+/* ---- バス照合 ---- */
+.photo{position:relative;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-top:14px}
+.photo img{display:block;width:100%;aspect-ratio:2/1;object-fit:cover;object-position:center 56%}
+.pin{position:absolute;left:9.5%;top:66%;transform:translate(-50%,-50%);width:23px;height:23px;border-radius:50%;background:#fff;color:var(--ink);font-family:var(--din);font-weight:700;font-size:12px;display:grid;place-items:center;box-shadow:0 1px 5px rgba(0,0,0,.4);border:0}
+
+.led-wrap{margin-top:14px}
+.led-cap{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--ink2);letter-spacing:.03em;margin-bottom:6px}
+.led{position:relative;background:#0a0c0b;border-radius:6px;padding:13px 14px 13px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.07);overflow:hidden}
+.led::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.26;background:repeating-linear-gradient(to bottom,rgba(0,0,0,.6) 0 1px,transparent 1px 3px)}
+.led-row{display:flex;align-items:center;gap:9px}
+.led-num{font-family:var(--din);font-size:27px;font-weight:700;color:var(--amber);letter-spacing:.03em;text-shadow:0 0 9px rgba(255,180,58,.5);line-height:1}
+.led-dest{font-size:22px;font-weight:700;color:var(--amber);line-height:1.24;text-shadow:0 0 9px rgba(255,180,58,.45);min-width:0}
+.led-note{font-family:var(--din);font-size:11px;color:rgba(255,180,58,.65);margin-top:6px;letter-spacing:.03em;padding-left:28px}
+.badge{flex:0 0 auto;width:19px;height:19px;border-radius:50%;background:rgba(255,180,58,.92);color:#0a0c0b;font-family:var(--din);font-size:11px;font-weight:700;display:grid;place-items:center}
+
+.keys{margin-top:14px;border-top:1px solid var(--line)}
+.key{display:grid;grid-template-columns:24px 1fr;gap:11px;align-items:start;padding:7px 0;border-bottom:1px solid var(--line)}
+.key .n{width:24px;height:24px;border-radius:50%;background:var(--ink);color:#fff;font-family:var(--din);font-size:12px;font-weight:700;display:grid;place-items:center}
+.key b{display:block;font-size:16px;font-weight:700;line-height:1.35}
+.key span{display:block;font-size:11px;color:var(--ink2);margin-top:2px;line-height:1.55}
+
+.alert{margin-top:12px;border:1px solid rgba(207,42,42,.35);background:#fdf5f4;border-radius:5px;padding:12px 13px;font-size:12px;line-height:1.7;color:#7c2222}
+.alert b{display:block;font-size:13px;margin-bottom:3px}
+.hidden{display:none!important}
+
+/* ---- 降車 ---- */
+.tag-red{display:inline-flex;align-items:center;gap:6px;background:var(--red);color:#fff;font-size:11px;font-weight:700;letter-spacing:.06em;padding:5px 9px;border-radius:3px}
+.stop-hero{margin-top:14px;border:2px solid var(--red);border-radius:6px;padding:16px 16px 18px;background:#fff}
+.stop-hero .jp{font-size:32px;font-weight:700;line-height:1.16;letter-spacing:-.01em;word-break:break-word}
+.stop-hero .ro{font-family:var(--din);font-size:16px;color:var(--ink2);margin-top:8px;line-height:1.4}
+.walk{font-size:12px;line-height:1.65;color:var(--ink2);margin:11px 0 0;padding-top:11px;border-top:1px solid var(--line)}
+.fare{display:flex;align-items:baseline;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.fare .amt{font-family:var(--din);font-size:27px;font-weight:700}
+.fare .note{font-size:12px;line-height:1.6;color:var(--ink2)}
+.seq-h{font-size:13px;font-weight:700;margin:20px 0 2px}
+.seq-h em{font-style:normal;font-weight:400;font-size:11px;color:var(--ink2);margin-left:8px}
+.seq{list-style:none;margin:6px 0 0;padding:0}
+.seq li{display:grid;grid-template-columns:14px 1fr;gap:12px;position:relative;padding:4px 0}
+.seq li::after{content:"";position:absolute;left:6px;top:19px;bottom:-4px;width:1px;background:var(--line)}
+.seq li:last-child::after{display:none}
+.seq .d{width:13px;height:13px;border-radius:50%;border:1.5px solid var(--line);background:#fff;margin-top:3px}
+.seq li.start .d{border-color:var(--green);background:var(--green)}
+.seq li.end .d{border-color:var(--red);background:var(--red)}
+.seq .nm{font-size:14px;line-height:1.45}
+.seq li.end .nm{font-weight:700}
+.seq .lb{font-family:var(--din);font-size:10px;letter-spacing:.05em;color:var(--ink2);margin-left:7px}
+.seq li.start .lb{color:var(--green-d)}
+.seq li.end .lb{color:var(--red)}
+.seq-note{font-size:11px;line-height:1.7;color:var(--ink2);margin:9px 0 0}
+
+.homebar{flex:0 0 auto;height:22px;display:grid;place-items:center;background:var(--board)}
+.homebar i{display:block;width:118px;height:4px;border-radius:2px;background:#c9cec7}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <aside class="brief">
+    <div class="brandmark">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#11161a"/><rect x="7" y="9" width="18" height="13" rx="2" fill="#fff"/><rect x="7" y="15" width="18" height="4" fill="#00793d"/><circle cx="11" cy="24" r="2" fill="#fff"/><circle cx="21" cy="24" r="2" fill="#fff"/></svg>
+      <span>TOKYO BUS MATE</span>
+    </div>
+    <h2>乗るバスを、<br>写真で見比べる。</h2>
+    <p class="jp">経路検索アプリは「出発前にルートを調べる」道具。このデモは、バス停に立っている瞬間・バスが目の前に来た瞬間・降りる準備をする瞬間の「目視確認」だけを支援します。</p>
+    <ol class="flow">
+      <li><span class="n">01</span><span class="t">目的地を選ぶ<em>Where to?</em></span></li>
+      <li><span class="n">02</span><span class="t">乗るバス停を選ぶ／検索<em>Which stop</em></span></li>
+      <li><span class="n">03</span><span class="t">写真と3つの見分けポイントで照合<em>Match the bus</em></span></li>
+      <li><span class="n">04</span><span class="t">降りるバス停を確認<em>Get off here</em></span></li>
+    </ol>
+    <p class="meta"><strong>Demo range</strong><br>Route 上23 ／ Asakusa area<br>Static GTFS data ／ fare ¥210<br>Photos: manually prepared</p>
+  </aside>
+
+  <div class="device">
+    <div class="app">
+      <div class="appbar">
+        <div class="plate"><b>上23</b><span>TOEI BUS</span></div>
+        <div class="steps" id="steps"><i></i><i></i><i></i><i></i></div>
+      </div>
+      <main id="screen"></main>
+      <div class="homebar"><i></i></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   Demo data — 都営バス 上23系統（上野松坂屋前 ⇔ 平井駅前）
+   停留所名・順番は都営バスの静的データ（公開情報）に基づく固定値。
+   GTFS-RT（リアルタイム位置）・GPS・画像認識は一切使用しない。
+   ========================================================= */
+const ARROW = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const POLE = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="5" r="2.6"/><path d="M12 8v13" stroke-linecap="round"/><path d="M6.5 11h11" stroke-linecap="round"/></svg>';
+const LOUPE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="M15.2 15.2L20 20" stroke-linecap="round"/></svg>';
+
+/* 上野松坂屋前 行き（浅草→上野方面） */
+const ROUTE_UE = [
+  { jp: '押上', ro: 'Oshiage' },
+  { jp: 'とうきょうスカイツリー駅入口', ro: 'Tokyo Skytree Sta. entrance' },
+  { jp: '本所吾妻橋', ro: 'Honjo-Azumibashi' },
+  { jp: '墨田区役所前', ro: 'Sumida-kuyakusho-mae' },
+  { jp: '浅草雷門', ro: 'Kaminarimon' },
+  { jp: '浅草一丁目', ro: 'Asakusa 1-chome' },
+  { jp: '浅草寿町', ro: 'Asakusa Kotobukicho' },
+  { jp: '菊屋橋', ro: 'Kikuyabashi' },
+  { jp: '東上野六丁目', ro: 'Higashi-Ueno 6-chome' },
+  { jp: '下谷神社前', ro: 'Shitaya Jinja-mae' },
+  { jp: '上野駅前', ro: 'Ueno Sta.' },
+  { jp: '上野公園山下', ro: 'Ueno-koen-yamashita' },
+  { jp: '上野松坂屋前', ro: 'Ueno-Matsuzakaya-mae' }
+];
+
+/* 平井駅前 行き（上野→浅草→押上方面） */
+const ROUTE_HR = [
+  { jp: '浅草雷門', ro: 'Kaminarimon' },
+  { jp: '墨田区役所前', ro: 'Sumida-kuyakusho-mae' },
+  { jp: '本所吾妻橋', ro: 'Honjo-Azumibashi' },
+  { jp: 'とうきょうスカイツリー駅入口', ro: 'Tokyo Skytree Sta. entrance' },
+  { jp: '押上', ro: 'Oshiage' },
+  { jp: '十間橋', ro: 'Jukkenbashi' }
+];
+
+/* 浅草周辺の乗車停留所（上23の浅草エリア7か所のみを候補にする） */
+const AREA = [
+  '浅草雷門', '浅草一丁目', '浅草寿町', '墨田区役所前', '本所吾妻橋',
+  'とうきょうスカイツリー駅入口', '押上'
+];
+
+const DATA = {
+  zoo: {
+    key: 'zoo', jp: '上野動物園', en: 'Ueno Zoo', img: 'assets/ueno-zoo.jpg',
+    dirJp: '上野松坂屋前', dirRo: 'Ueno-Matsuzakaya-mae', route: ROUTE_UE,
+    alightJp: '上野公園山下',
+    alightRo: 'Ueno-koen-yamashita',
+    walk: '約5分で動物園の正門へ ／ 5 min walk to the main gate'
+  },
+  skytree: {
+    key: 'skytree', jp: '東京スカイツリー', en: 'Tokyo Skytree', img: 'assets/skytree.jpg',
+    dirJp: '平井駅前', dirRo: 'Hirai Sta.', route: ROUTE_HR,
+    alightJp: '押上',
+    alightRo: 'Oshiage',
+    walk: '約5分でスカイツリーへ ／ 5 min walk to Tokyo Skytree'
+  },
+  senso: {
+    key: 'senso', jp: '浅草寺', en: 'Senso-ji Temple', img: 'assets/sensoji.jpg',
+    dirJp: '上野松坂屋前', dirRo: 'Ueno-Matsuzakaya-mae', route: ROUTE_UE,
+    alightJp: '浅草雷門',
+    alightRo: 'Kaminarimon',
+    walk: '降車してすぐ ／ right at the temple gate'
+  }
+};
+
+const state = { dest: null, board: null };
+
+/* 目的地の方角で「乗れるバス停」を絞る（降車停留所より手前だけ） */
+function boardStops(d) {
+  const end = d.route.findIndex(s => s.jp === d.alightJp);
+  return d.route.slice(0, end).filter(s => AREA.includes(s.jp));
+}
+
+/* ---------- 画面 ---------- */
+const V = {};
+
+V.home = () => `
+  <div class="home">
+    <div class="home-head">
+      <p class="eyebrow">DEMO — 都営バス 上23 ／ 浅草周辺</p>
+      <h1 class="brand">Tokyo Bus<br>Mate</h1>
+      <p class="tag">日本語が読めなくても、<br>目の前のバスを見比べて乗れる。</p>
+      <p class="lead">Pick a place. We show the bus to take — photo, number, place name.</p>
+    </div>
+    <div class="guide">
+      <div class="g">
+        <span class="g-n">1</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" stroke-linecap="round"/><circle cx="12" cy="10" r="2.4"/></svg>
+        <b>選ぶ</b><span>目的地</span>
+      </div>
+      <div class="g">
+        <span class="g-n">2</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="5" r="2.4"/><path d="M12 8v13" stroke-linecap="round"/><path d="M6.5 11h11" stroke-linecap="round"/></svg>
+        <b>選ぶ</b><span>バス停</span>
+      </div>
+      <div class="g">
+        <span class="g-n">3</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="4" y="5" width="16" height="12" rx="2"/><rect x="4" y="10" width="16" height="3.4" fill="currentColor" stroke="none"/><circle cx="8" cy="19" r="1.6"/><circle cx="16" cy="19" r="1.6"/></svg>
+        <b>見比べる</b><span>写真と番号</span>
+      </div>
+    </div>
+    <div class="places">
+      <p class="places-h">このデモで行ける場所 ／ 3 places</p>
+      <div class="places-grid">
+        <div class="place"><img src="assets/ueno-zoo.jpg" alt="上野動物園"><span>上野動物園</span></div>
+        <div class="place"><img src="assets/skytree.jpg" alt="東京スカイツリー"><span>東京スカイツリー</span></div>
+        <div class="place"><img src="assets/sensoji.jpg" alt="浅草寺"><span>浅草寺</span></div>
+      </div>
+    </div>
+    <div class="home-foot">
+      <button class="btn" data-go="#/dest">Start<small>はじめる ／ 目的地を選ぶ</small></button>
+      <p class="foot-note">本デモの写真は上23系統のみ手動で用意しています。<br>Photos are prepared by hand for route 上23 only.</p>
+    </div>
+  </div>
+`;
+
+V.dest = () => {
+  const rows = Object.values(DATA).map(d => `
+    <button class="dest" data-dest="${d.key}">
+      <img src="${d.img}" alt="${d.jp}">
+      <div class="dest-body">
+        <div class="dest-jp${d.jp.length > 6 ? ' long' : ''}">${d.jp}</div>
+        <div class="dest-en">${d.en}</div>
+        <div class="dest-dir">上23 → ${d.dirJp}</div>
+      </div>
+      <span class="go">${ARROW}</span>
+    </button>`).join('');
+  return `
+  <div class="page">
+    <span class="stepnum">STEP 01</span>
+    <h2 class="scr-title">Where to?</h2>
+    <p class="scr-sub">目的地を選ぶ ／ 3 places</p>
+    <p class="lead">Choose one place. We will show the bus for it.</p>
+    <div class="dest-list">${rows}</div>
+    <p class="foot-note push">この3か所だけが登録されています。</p>
+  </div>
+`;
+};
+
+V.stop = () => {
+  const d = DATA[state.dest || 'zoo'];
+  const list = boardStops(d);
+  const rows = list.map(s => `
+    <button class="stop" data-stop="${s.jp}" data-s="${(s.jp + ' ' + s.ro).toLowerCase()}">
+      ${POLE}
+      <span class="stop-txt">
+        <span class="stop-jp${s.jp.length > 10 ? ' long' : ''}">${s.jp}</span>
+        <span class="stop-ro">${s.ro}</span>
+      </span>
+      <span class="go">${ARROW}</span>
+    </button>`).join('');
+  return `
+  <div class="page">
+    <span class="stepnum">STEP 02</span>
+    <h2 class="scr-title">Which stop are you at?</h2>
+    <p class="scr-sub">乗るバス停 ／ toward ${d.dirJp}</p>
+    <div class="search">
+      ${LOUPE}
+      <input id="q" type="search" placeholder="停留所名で検索 ／ Search stop name" autocomplete="off" autocapitalize="off" spellcheck="false">
+    </div>
+    <div class="stop-list" id="stopList">${rows}</div>
+    <p class="empty hidden" id="stopEmpty">No stop matches. ／ 一致するバス停がありません。<br>Clear the search to see all stops.</p>
+    <div class="push">
+      <div class="note-card">
+        <b>${list.length} stops ／ 浅草周辺のみ</b>
+        <span>This demo lists the 上23 stops around Asakusa only. If your stop is not here, walk to the nearest one. ／ 停留所名はポールの表示と同じです。</span>
+      </div>
+      ${list.length <= 5 ? `<div class="tip">${POLE}<div><b>Match the name on the pole</b><span>The stop sign shows the place name in Japanese. The romaji under it is the same sound.</span></div></div>` : ''}
+    </div>
+  </div>
+`;
+};
+
+V.match = () => {
+  const d = DATA[state.dest || 'zoo'];
+  return `
+  <span class="stepnum">STEP 03</span>
+  <h2 class="scr-title">Is this your bus?</h2>
+  <p class="scr-sub">このバスで合っていますか</p>
+
+  <div class="photo">
+    <img src="assets/bus-toei.jpg" alt="上23系統のバス車体">
+    <span class="pin" aria-hidden="true">3</span>
+  </div>
+  <p class="cap" style="font-size:11px;line-height:1.7;color:var(--ink2);margin:7px 0 0">本デモの写真は上23系統のみ手動で用意しています。</p>
+
+  <div class="led-wrap">
+    <div class="led-cap">前面の行先表示 ／ front sign</div>
+    <div class="led">
+      <div class="led-row"><span class="badge">1</span><span class="led-num">上23</span></div>
+      <div class="led-row" style="margin-top:7px"><span class="badge">2</span><span class="led-dest">${d.dirJp}</span></div>
+    </div>
+  </div>
+
+  <div class="keys">
+    <div class="key"><span class="n">1</span><div><b>上23 &nbsp;left side ／ 左</b><span>Number is on the left of the sign.</span></div></div>
+    <div class="key"><span class="n">2</span><div><b>${d.dirJp} &nbsp;right side ／ 右</b><span>${d.dirRo} — the place name it goes to.</span></div></div>
+    <div class="key"><span class="n">3</span><div><b>White body + green band</b><span>車体は白＋緑の帯。Other routes look the same, so check 1 and 2.</span></div></div>
+  </div>
+
+  <div class="alert hidden" id="notBus">
+    <b>Not this bus — wait for the next one.</b>
+    Same white-and-green bus, but the sign says <strong>${DATA[state.dest === 'zoo' || state.dest === 'senso' ? 'skytree' : 'zoo'].dirJp}</strong> when it goes the other way. Take only the bus showing <strong>${d.dirJp}</strong>.
+  </div>
+
+  <div style="margin-top:12px">
+    <button class="btn" data-go="#/alight">Yes — this bus<small>このバスに乗る</small></button>
+    <button class="btn ghost" data-act="notbus">Not this bus<small>違うバスだった</small></button>
+  </div>
+`;
+};
+
+V.alight = () => {
+  const d = DATA[state.dest || 'zoo'];
+  const boardJp = state.board || '浅草雷門';
+  let start = d.route.findIndex(s => s.jp === boardJp);
+  const end = d.route.findIndex(s => s.jp === d.alightJp);
+  if (start < 0 || start > end) start = Math.max(0, end - 1);
+  const seg = [];
+  for (let i = start; i <= end; i++) {
+    seg.push(`<li class="${i === start ? 'start' : ''}${i === end ? ' end' : ''}">
+      <span class="d"></span>
+      <span class="nm">${d.route[i].jp}<span class="lb">${i === start ? 'BOARD' : (i === end ? 'GET OFF' : d.route[i].ro)}</span></span>
+    </li>`);
+  }
+  return `
+  <span class="stepnum">STEP 04</span>
+  <h2 class="scr-title">Get off here</h2>
+  <p class="scr-sub">降りるバス停 ／ ${d.dirJp} 行き</p>
+
+  <div class="stop-hero">
+    <span class="tag-red">YOUR STOP ／ 降りる停留所</span>
+    <div class="jp">${d.alightJp}</div>
+    <div class="ro">${d.alightRo}</div>
+    <p class="walk">${d.walk}</p>
+  </div>
+
+  <div class="fare">
+    <span class="amt">¥210</span>
+    <span class="note">Flat fare, IC or cash.<br>Pay when you get on. ／ 前払い</span>
+  </div>
+
+  <p class="seq-h">Stops in between<em>乗車〜降車の順番</em></p>
+  <ul class="seq">${seg.join('')}</ul>
+  <p class="seq-note">順番は固定データです。現在位置は表示しません。<br>Look for <strong>${d.alightJp}</strong> on the front sign.</p>
+
+  <div style="margin-top:14px">
+    <button class="btn ghost" data-go="#/home">Start over<small>最初に戻る</small></button>
+  </div>
+`;
+};
+
+/* ---------- ルーター ---------- */
+const screenEl = document.getElementById('screen');
+const stepsEl = document.getElementById('steps');
+const ORDER = ['home', 'dest', 'stop', 'match', 'alight'];
+
+function render() {
+  const hash = location.hash || '#/home';
+  const key = hash.replace('#/', '');
+  const view = V[key] || V.home;
+
+  if (key === 'home' || !V[key]) { state.dest = null; state.board = null; }
+  screenEl.innerHTML = view();
+  screenEl.scrollTop = 0;
+
+  const idx = ORDER.indexOf(V[key] ? key : 'home');
+  [...stepsEl.children].forEach((el, i) => {
+    el.className = '';
+    if (i === idx) el.className = 'on';
+    else if (i < idx) el.className = 'past';
+  });
+}
+
+document.addEventListener('click', e => {
+  const go = e.target.closest('[data-go]');
+  if (go) { location.hash = go.dataset.go; return; }
+
+  const dest = e.target.closest('[data-dest]');
+  if (dest) { state.dest = dest.dataset.dest; location.hash = '#/stop'; return; }
+
+  const stop = e.target.closest('[data-stop]');
+  if (stop) { state.board = stop.dataset.stop; location.hash = '#/match'; return; }
+
+  const act = e.target.closest('[data-act]');
+  if (act && act.dataset.act === 'notbus') {
+    const a = document.getElementById('notBus');
+    if (a) {
+      a.classList.toggle('hidden');
+      if (!a.classList.contains('hidden')) a.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }
+});
+
+/* 停留所検索：表示中の行だけを絞り込む（再描画しない） */
+screenEl.addEventListener('input', e => {
+  if (e.target.id !== 'q') return;
+  const q = e.target.value.trim().toLowerCase();
+  let n = 0;
+  document.querySelectorAll('#stopList .stop').forEach(el => {
+    const hit = !q || el.dataset.s.indexOf(q) > -1;
+    el.classList.toggle('hidden', !hit);
+    if (hit) n++;
+  });
+  const empty = document.getElementById('stopEmpty');
+  if (empty) empty.classList.toggle('hidden', n > 0);
+});
+
+window.addEventListener('hashchange', render);
+render();
+</script>
+</body>
+</html>
